@@ -23,14 +23,14 @@ BLUE2 = (0, 100, 255)
 BLACK = (0,0,0)
 
 BLOCK_SIZE = 20
-SPEED = 50
-
+SPEED = 10
+DELAY_FOR_TIMEOUTMOVE = 5
 class Player:
     def __init__(self, id, x, y, win_w, win_h):
         self.actPos = Point(x,y)
         self.id = id
         self.trace = []
-
+        self.lastMove = Action(id, randint(1,4))
         # Store Window Size
         self.win_w = win_w
         self.win_h = win_h
@@ -74,6 +74,7 @@ class TronGame:
         self.display = pygame.display.set_mode((self.w, self.h))
         pygame.display.set_caption('Tron')
         self.clock = pygame.time.Clock()
+        self.lastAction = 0
         self.players = []
         self.actions = []
         self.reset()
@@ -113,22 +114,47 @@ class TronGame:
         self.players.append(Player(id, 50,50, self.w, self.h))
         return id
 
+    # Move one Player
+    def _movePlayer(self, p, act):
+        newPos = p._move(int(act.action))
+        if p.lastMove != act:
+            p.lastMove = act
+        kill = self._checkForKill(p, newPos)
+        if kill:
+            self.players.remove(p)
+
     # Move all Player when all action are recived
-    def _move_Player(self):
+    def _move_Players(self):
         if len(self.actions) == len(self.players):
+            self.lastAction = pygame.time.get_ticks()
             for act in self.actions:
                 for p in self.players:
                     if p.id == act.playerID:
-                        newPos = p._move(int(act.action))
-                        kill = self._checkForKill(p, newPos)
-                        if kill:
-                            self.players.remove(p)
+                        self._movePlayer(p, act)
                         break
 
             self.actions.clear()
             return True
         else:
+            # Check for TimeOut-Move
+            if pygame.time.get_ticks() - self.lastAction >= DELAY_FOR_TIMEOUTMOVE:
+                for p in self.players:
+                    moved = False
+                    # Try to find Registerd Action
+                    for act in self.actions:
+                        if p.id == act.playerID:
+                            self._movePlayer(p, act)
+                            moved = True
+                            break
+
+                    if not moved:
+                        # Player TimedOut -> use old Move
+                        self._movePlayer(p, p.lastMove)
+                return True
             return False
+
+
+
 
     # Check if the player is now defeated
     def _checkForKill(self, p, newPos):
@@ -178,7 +204,7 @@ class TronGame:
                 quit()
         print("events")
         # Do all Movements
-        self._move_Player()
+        self._move_Players()
         print("move")
         # Check if game Over
         if(self._checkGameOver()):
