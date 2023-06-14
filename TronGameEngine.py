@@ -141,6 +141,7 @@ class TronGame:
                     return True
         return False
 
+    # Render the Output
     def _render(self):
         self.display.fill(BLACK)
 
@@ -160,21 +161,33 @@ class TronGame:
         # Update Screen
         pygame.display.flip()
 
+    # Check for GameOver
+    def _checkGameOver(self):
+        # TODO: Better Win Condition (1 player left when not in single player mode)
+        if(len(self.players) == 0):
+            return True
+        return False
+
     # Do one Game Step
     def game_step(self):
+        print("gameStep")
         # End game based on event
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
-
+        print("events")
         # Do all Movements
         self._move_Player()
-
+        print("move")
         # Check if game Over
-        # TODO gameover
-
+        if(self._checkGameOver()):
+            return False
+        print("GameOver")
         # Do new Frame rendering
         self.frame_iteration += 1
         self._render()
+        print("render")
         self.clock.tick(SPEED)
+
+        return True

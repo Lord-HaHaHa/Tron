@@ -5,6 +5,7 @@ from pynput import keyboard
 game = TronGameEngine.TronGame()
 
 def on_key_press(key):
+    print("key pressed")
     try:
         if key.char == 'w':
             game.registerAction(p1, 4)
@@ -28,11 +29,13 @@ listener.start()
 #p2 = game.registerPlayer()
 #print(f'Player2 ID: {p2}')
 
+running = True
 # game loop
-while True:
+while running:
     # Get Player Movement
     # use Eventlistener for p1
     # Do GameStep
-    game.game_step()
-
+    print(running)
+    running = game.game_step()
+exit(0)
 listener.join()
