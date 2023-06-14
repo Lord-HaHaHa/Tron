@@ -52,7 +52,7 @@ class Player:
         else:
             return False
 
-        return(self.id, self.actPos)
+        return(self.actPos)
 
     def __repr__(self):
         return f"PlayerOBJ - ID{self.id}, ActPos:{self.actPos}"
@@ -119,13 +119,27 @@ class TronGame:
             for act in self.actions:
                 for p in self.players:
                     if p.id == act.playerID:
-                        p._move(int(act.action))
+                        newPos = p._move(int(act.action))
+                        kill = self._checkForKill(p, newPos)
+                        if kill:
+                            self.players.remove(p)
                         break
 
             self.actions.clear()
             return True
         else:
             return False
+
+    # Check if the player is now defeated
+    def _checkForKill(self, p, newPos):
+        for ply in self.players:
+            if ply != p:
+                if ply.actPos == newPos:
+                    return True
+            for t in ply.trace:
+                if t == newPos:
+                    return True
+        return False
 
     def _render(self):
         self.display.fill(BLACK)
