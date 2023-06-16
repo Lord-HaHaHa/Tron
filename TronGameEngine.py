@@ -6,15 +6,8 @@ import numpy as np
 import copy
 
 pygame.init()
-#font = pygame.font.Font('arial.ttf', 25)
 
 font = pygame.font.SysFont('arial', 25)
-
-class Direction(Enum):
-    RIGHT = 1
-    LEFT = 2
-    UP = 3
-    DOWN = 4
 
 Point = namedtuple('Point', 'x, y')
 
@@ -23,12 +16,12 @@ WHITE = (255, 255, 255)
 BLACK = (0,0,0)
 
 BLOCK_SIZE = 20
-SPEED = 10
-DELAY_FOR_TIMEOUTMOVE = 5
+SPEED = 30
+DELAY_FOR_TIMEOUTMOVE = 20
 
 class Player:
     def __init__(self, id, color, x, y, size_w, size_h):
-        self.actPos = Point(x,y)
+        self.actPos = Point(x, y)
         self.id = id
         self.lastMove = Action(id, randint(1,4))
         self.color = color
@@ -52,7 +45,6 @@ class Player:
             self.actPos = Point(self.actPos.x, (self.actPos.y - STEP) % self.len_h)
         else:
             return False
-        print(self.actPos)
         return(self.actPos)
 
     def __repr__(self):
@@ -79,28 +71,29 @@ class TronGame:
 
         # init vars
         self.lastMoveUpdate = 0
+        self.amountMoves = 0
         self.gamefield_w = blockAmount_w
         self.gamefield_h = blockAmount_h
         self.gamefield = [[0 for x in range(self.gamefield_w)] for y in range(self.gamefield_h)]
+        self.act_players = []
         self.players = []
         self.queuedActions = []
         self.reset()
 
     def reset(self):
-        # TODO Reset Players
-        print("Engine: reset")
-        self.players = []
+        self.act_players = []
         self.frame_iteration = 0
+        self.amountMoves = 0
         self.gamefield = [[0 for x in range(self.gamefield_w)] for y in range(self.gamefield_h)]
         self.queuedActions = []
-
+        self.act_players = self.players.copy()
 
     # Register a Action for a Player
     def registerAction(self, id, action):
         if action > 4 or action <1:
             return False
         validID = False
-        for p in self.players:
+        for p in self.act_players:
             if p.id == id:
                 validID = True
         if validID:
@@ -117,13 +110,14 @@ class TronGame:
             return False
 
     # Register new Player for
-    def registerPlayer(self, color = (randint(0,255), randint(0,255), randint(0,255))):
+    def registerPlayer(self, color=(randint(0,255), randint(0,255), randint(0,255))):
         # Generate a new ID
         id = randint(0, 1000)
-        while id in self.players:
+        while id in self.act_players:
             id = randint(0, 1000)
-
-        self.players.append(Player(id, color, randint(0, self.gamefield_w), randint(0, self.gamefield_h), self.gamefield_w, self.gamefield_h))
+        player = Player(id, color, randint(0, self.gamefield_w), randint(0, self.gamefield_h), self.gamefield_w, self.gamefield_h)
+        self.act_players.append(player)
+        self.players.append(player)
         return id
 
     # Move one Player
@@ -133,50 +127,54 @@ class TronGame:
             p.lastMove = act
         kill = self._checkForKill(p, newPos)
         if kill:
-            self.players.remove(p)
+            self.act_players.remove(p)
         else:
-            self.gamefield[newPos.x][newPos.y] = p.id
+            self.gamefield[newPos.x-1][newPos.y-1] = p.id
 
-    # Move all Player when all action are recived
+    # Move all Player when all action are received
     def _move_Players(self):
-        if len(self.queuedActions) == len(self.players):
+        if len(self.queuedActions) == len(self.act_players):
             self.lastMoveUpdate = pygame.time.get_ticks()
             for act in self.queuedActions:
-                for p in self.players:
+                for p in self.act_players:
                     if p.id == act.playerID:
                         self._movePlayer(p, act)
                         break
 
             self.queuedActions.clear()
+            self.amountMoves += 1
             return True
         else:
             # Check for TimeOut-Move
             if pygame.time.get_ticks() - self.lastMoveUpdate >= DELAY_FOR_TIMEOUTMOVE:
-                for p in self.players:
+                for p in self.act_players:
                     moved = False
-                    # Try to find Registerd Action
+                    # Try to find Registered Action
                     for act in self.queuedActions:
                         if p.id == act.playerID:
                             self._movePlayer(p, act)
                             moved = True
                             break
                     self.queuedActions.clear()
+
                     if not moved:
                         # Player TimedOut -> use old Move
                         self._movePlayer(p, p.lastMove)
+
+                self.amountMoves += 1
                 return True
             return False
 
     # Return the Playerobj. for a given ID
     def find_player_by_id(self, player_id):
-        for player in self.players:
+        for player in self.act_players:
             if player.id == player_id:
                 return player
         return None
 
     # Check if the player is now defeated
     def _checkForKill(self, p, newPos):
-        if self.gamefield[newPos.x][newPos.y] != 0:
+        if self.gamefield[newPos.x-1][newPos.y-1] != 0:
             # Remove Player from gamefield
             for x in range(len(self.gamefield)):
                 for y in range(len(self.gamefield[x])):
@@ -196,7 +194,7 @@ class TronGame:
                     if ply != None:
                         pygame.draw.rect(self.display, ply.color, pygame.Rect(x * BLOCK_SIZE + 4, y * BLOCK_SIZE + 4, 12, 12))
         # Draw Score:
-        text = font.render("Player: " + str(len(self.players)) + " Frame:" + str(self.frame_iteration), True, WHITE)
+        text = font.render("Player: " + str(len(self.act_players)) + " Moves:" + str(self.amountMoves), True, WHITE)
         self.display.blit(text, [0,0])
 
         # Update Screen
@@ -205,23 +203,33 @@ class TronGame:
     # Check for GameOver
     def _checkGameOver(self):
         # TODO: Better Win Condition (1 player left when not in single player mode)
-        if(len(self.players) == 0):
+        if len(self.act_players) == 0:
             return True
         return False
 
     # Generate State for ML
-    def getState(self):
-        norm_gamefield = np.array(self.gamefield,dtype=int)
+    def getState(self, playerID=-1):
+        norm_gamefield = np.array(self.gamefield, dtype=int)
         for x in range(len(self.gamefield)):
             for y in range(len(self.gamefield[x])):
                 if self.gamefield[x][y] != 0:
                     norm_gamefield[x][y] = 1
-        return norm_gamefield
+
+        if playerID == -1:
+            try:
+                playerID = self.act_players[0].id
+                player = self.find_player_by_id(playerID)
+                playerPos = [player.actPos.x, player.actPos.y]
+            except:
+                playerPos = [-1,-1]
+        returnState = np.concatenate((playerPos, norm_gamefield.flatten()), axis=0)
+        return returnState.flatten()
 
     # Do one Game Step
     def game_step(self):
-        reward = 1
-        # End game based on event
+        reward = self.amountMoves
+
+        # Event handling
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -230,14 +238,19 @@ class TronGame:
         # Do all Movements
         self._move_Players()
 
-        # Check if game Over
-        if(self._checkGameOver()):
-            reward = -10
-            return reward, False, self.frame_iteration
-
         # Do new Frame rendering
         self.frame_iteration += 1
         self._render()
         self.clock.tick(SPEED)
 
-        return reward, True, self.frame_iteration
+        # Check if game Over
+        if self._checkGameOver():
+            reward = -100
+            return self.getState(), reward, True
+
+        return self.getState(), reward, False
+
+    # Step function for learning the ML-Net
+    def step(self, action):
+        self.registerAction(self.act_players[0].id, action)
+        return self.game_step()
