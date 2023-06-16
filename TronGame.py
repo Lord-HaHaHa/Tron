@@ -39,7 +39,7 @@ while running:
     if counter%10==0:
         game.registerPlayer()
     running = game.game_step()
-    state = game.getState()
+    game.getState()
 
 exit(0)
 listener.join()

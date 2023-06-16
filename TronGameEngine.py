@@ -3,6 +3,7 @@ from random import randint
 from collections import namedtuple
 from enum import Enum
 import numpy as np
+import copy
 
 pygame.init()
 #font = pygame.font.Font('arial.ttf', 25)
@@ -37,8 +38,6 @@ class Player:
 
     def _getNewPos(self, action):
         STEP = 1
-        print("_getNowPos")
-        print(f'Action:{action}, Lenw: {self.len_w}, lenH: {self.len_h}')
         # Move Left
         if action == 1:
             self.actPos = Point((self.actPos.x + STEP) % self.len_w, self.actPos.y)
@@ -89,6 +88,8 @@ class TronGame:
 
     def reset(self):
         # TODO Reset Players
+        print("Engine: reset")
+        self.players = []
         self.frame_iteration = 0
         self.gamefield = [[0 for x in range(self.gamefield_w)] for y in range(self.gamefield_h)]
         self.queuedActions = []
@@ -98,7 +99,7 @@ class TronGame:
     def registerAction(self, id, action):
         if action > 4 or action <1:
             return False
-        validIDd = False
+        validID = False
         for p in self.players:
             if p.id == id:
                 validID = True
@@ -187,7 +188,6 @@ class TronGame:
     # Render the Output
     def _render(self):
         self.display.fill(BLACK)
-
         # Draw all player
         for x in range(len(self.gamefield)):
             for y in range(len(self.gamefield[x])):
@@ -196,7 +196,7 @@ class TronGame:
                     if ply != None:
                         pygame.draw.rect(self.display, ply.color, pygame.Rect(x * BLOCK_SIZE + 4, y * BLOCK_SIZE + 4, 12, 12))
         # Draw Score:
-        text = font.render("Player: " + str(len(self.players)), True, WHITE)
+        text = font.render("Player: " + str(len(self.players)) + " Frame:" + str(self.frame_iteration), True, WHITE)
         self.display.blit(text, [0,0])
 
         # Update Screen
@@ -211,10 +211,16 @@ class TronGame:
 
     # Generate State for ML
     def getState(self):
-        return self.gamefield
+        norm_gamefield = np.array(self.gamefield,dtype=int)
+        for x in range(len(self.gamefield)):
+            for y in range(len(self.gamefield[x])):
+                if self.gamefield[x][y] != 0:
+                    norm_gamefield[x][y] = 1
+        return norm_gamefield
 
     # Do one Game Step
     def game_step(self):
+        reward = 1
         # End game based on event
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -226,11 +232,12 @@ class TronGame:
 
         # Check if game Over
         if(self._checkGameOver()):
-            return False
+            reward = -10
+            return reward, False, self.frame_iteration
 
         # Do new Frame rendering
         self.frame_iteration += 1
         self._render()
         self.clock.tick(SPEED)
 
-        return True
+        return reward, True, self.frame_iteration
