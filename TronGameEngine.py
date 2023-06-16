@@ -16,8 +16,8 @@ WHITE = (255, 255, 255)
 BLACK = (0,0,0)
 
 BLOCK_SIZE = 20
-SPEED = 30
-DELAY_FOR_TIMEOUTMOVE = 20
+SPEED = 2000
+DELAY_FOR_TIMEOUTMOVE = 200
 
 class Player:
     def __init__(self, id, color, x, y, size_w, size_h):
@@ -155,6 +155,7 @@ class TronGame:
                             self._movePlayer(p, act)
                             moved = True
                             break
+                    print("USE TIMEOUT")
                     self.queuedActions.clear()
 
                     if not moved:
