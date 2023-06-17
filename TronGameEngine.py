@@ -60,7 +60,7 @@ class Action:
 
 class TronGame:
 
-    def __init__(self, blockAmount_w=20, blockAmount_h=20):
+    def __init__(self, blockAmount_w=20, blockAmount_h=20, useTimeout=True):
         self.screen_w = blockAmount_w * BLOCK_SIZE
         self.screen_h = blockAmount_h * BLOCK_SIZE
 
@@ -76,8 +76,10 @@ class TronGame:
         self.gamefield_h = blockAmount_h
         self.gamefield = [[0 for x in range(self.gamefield_w)] for y in range(self.gamefield_h)]
         self.act_players = []
-        self.players = []
         self.queuedActions = []
+
+        self.players = []
+        self.useTimeout = useTimeout
         self.reset()
 
     def reset(self):
@@ -146,24 +148,25 @@ class TronGame:
             return True
         else:
             # Check for TimeOut-Move
-            if pygame.time.get_ticks() - self.lastMoveUpdate >= DELAY_FOR_TIMEOUTMOVE:
-                for p in self.act_players:
-                    moved = False
-                    # Try to find Registered Action
-                    for act in self.queuedActions:
-                        if p.id == act.playerID:
-                            self._movePlayer(p, act)
-                            moved = True
-                            break
-                    print("USE TIMEOUT")
-                    self.queuedActions.clear()
+            if self.useTimeout:
+                if pygame.time.get_ticks() - self.lastMoveUpdate >= DELAY_FOR_TIMEOUTMOVE:
+                    for p in self.act_players:
+                        moved = False
+                        # Try to find Registered Action
+                        for act in self.queuedActions:
+                            if p.id == act.playerID:
+                                self._movePlayer(p, act)
+                                moved = True
+                                break
+                        print("USE TIMEOUT")
+                        self.queuedActions.clear()
 
-                    if not moved:
-                        # Player TimedOut -> use old Move
-                        self._movePlayer(p, p.lastMove)
+                        if not moved:
+                            # Player TimedOut -> use old Move
+                            self._movePlayer(p, p.lastMove)
 
-                self.amountMoves += 1
-                return True
+                    self.amountMoves += 1
+                    return True
             return False
 
     # Return the Playerobj. for a given ID
@@ -246,7 +249,7 @@ class TronGame:
 
         # Check if game Over
         if self._checkGameOver():
-            reward = -100
+            reward = -10
             return self.getState(), reward, True
 
         return self.getState(), reward, False
