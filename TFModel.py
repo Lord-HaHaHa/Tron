@@ -5,17 +5,25 @@ import TronGameEngine
 from logger import plot
 
 # Define your Tron game environment
-size_w = 10
+size_w = 20
 size_h = 10
-game = TronGameEngine.TronGame(size_w, size_h, useTimeout=False)
+LearningType = 2
+game = TronGameEngine.TronGame(size_w, size_h, useTimeout=False, learingType=LearningType)
 bot = game.registerPlayer((0, 0, 255))
 num_actions = 4
 
+# Get InputShape for Model based on LearingType
+if LearningType == 1:
+    inputShape = 2 + size_w * size_h
+elif LearningType == 2:
+    inputShape = 9
+else:
+    inputShape = 0
+
 # Define the neural network model
 model = tf.keras.Sequential([
-    tf.keras.layers.Dense(64, activation='relu', input_shape=(2 + size_w * size_h,)), # x/y Pos + Gamefield
-    tf.keras.layers.Dense(256, activation='relu'),
-    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(32, activation='relu', input_shape=(inputShape,)),
+    tf.keras.layers.Dense(64, activation='relu'),
     tf.keras.layers.Dense(num_actions, activation='linear')
 ])
 
@@ -32,8 +40,8 @@ if len(physical_devices) > 0:
 
 # Define the exploration strategy
 epsilon = 1.0  # Exploration rate
-epsilon_decay = 0.9995  # Decay rate for exploration rate
-discount_factor = 0.99
+epsilon_decay = 0.99  # Decay rate for exploration rate
+discount_factor = 0.9
 # Define the replay buffer
 replay_buffer = []
 
@@ -70,14 +78,14 @@ def train():
 
 
 # Training loop
-num_episodes = 2_000
-batch_size = 64
+num_episodes = 200
+batch_size = 16
 plot_scores = []
 plot_mean_scores = []
 total_score = 0
 for episode in range(1, num_episodes+1):
     game.reset()
-    state = game.getState()
+    state = game.getState(LearningType)
     done = False
     score = 0
 
@@ -115,7 +123,7 @@ for episode in range(1, num_episodes+1):
 
     # Print Stats after GameOver
     if modelMove != 0:
-        print(f"Used Random / ModelMove: {rndMove} / {modelMove}, {(modelMove+rndMove)/modelMove}%")
+        print(f"Used Random / ModelMove: {rndMove} / {modelMove}, {epsilon}%")
     else:
         print(f"Used Random / ModelMove: {rndMove} / {modelMove}, inf")
 
@@ -132,7 +140,7 @@ num_eval_episodes = 5
 
 for _ in range(num_eval_episodes):
     game.reset()
-    state = game.getState()
+    state = game.getState(LearningType)
     done = False
 
     while not done:

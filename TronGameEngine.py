@@ -7,7 +7,7 @@ import copy
 
 pygame.init()
 
-font = pygame.font.SysFont('arial', 25)
+font = pygame.font.SysFont('arial', 20)
 
 Point = namedtuple('Point', 'x, y')
 
@@ -45,7 +45,7 @@ class Player:
             self.actPos = Point(self.actPos.x, (self.actPos.y - STEP) % self.len_h)
         else:
             return False
-        return(self.actPos)
+        return self.actPos
 
     def __repr__(self):
         return f"PlayerOBJ - ID{self.id}, ActPos:{self.actPos}"
@@ -60,7 +60,7 @@ class Action:
 
 class TronGame:
 
-    def __init__(self, blockAmount_w=20, blockAmount_h=20, useTimeout=True):
+    def __init__(self, blockAmount_w=20, blockAmount_h=20, useTimeout=True, learingType=1):
         self.screen_w = blockAmount_w * BLOCK_SIZE
         self.screen_h = blockAmount_h * BLOCK_SIZE
 
@@ -77,7 +77,7 @@ class TronGame:
         self.gamefield = [[0 for x in range(self.gamefield_w)] for y in range(self.gamefield_h)]
         self.act_players = []
         self.queuedActions = []
-
+        self.learningType = learingType
         self.players = []
         self.useTimeout = useTimeout
         self.reset()
@@ -131,7 +131,7 @@ class TronGame:
         if kill:
             self.act_players.remove(p)
         else:
-            self.gamefield[newPos.x-1][newPos.y-1] = p.id
+            self.gamefield[newPos.y-1][newPos.x-1] = p.id
 
     # Move all Player when all action are received
     def _move_Players(self):
@@ -178,7 +178,7 @@ class TronGame:
 
     # Check if the player is now defeated
     def _checkForKill(self, p, newPos):
-        if self.gamefield[newPos.x-1][newPos.y-1] != 0:
+        if self.gamefield[newPos.y-1][newPos.x-1] != 0:
             # Remove Player from gamefield
             for x in range(len(self.gamefield)):
                 for y in range(len(self.gamefield[x])):
@@ -190,11 +190,11 @@ class TronGame:
     # Render the Output
     def _render(self):
         self.display.fill(BLACK)
-        # Draw all player
-        for x in range(len(self.gamefield)):
-            for y in range(len(self.gamefield[x])):
-                if self.gamefield[x][y] != 0:
-                    ply = self.find_player_by_id(self.gamefield[x][y])
+        # Draw Gamefield
+        for x in range(self.gamefield_w):
+            for y in range(self.gamefield_h):
+                if self.gamefield[y][x] != 0:
+                    ply = self.find_player_by_id(self.gamefield[y][x])
                     if ply != None:
                         pygame.draw.rect(self.display, ply.color, pygame.Rect(x * BLOCK_SIZE + 4, y * BLOCK_SIZE + 4, 12, 12))
         # Draw Score:
@@ -212,26 +212,53 @@ class TronGame:
         return False
 
     # Generate State for ML
-    def getState(self, playerID=-1):
-        norm_gamefield = np.array(self.gamefield, dtype=int)
-        for x in range(len(self.gamefield)):
-            for y in range(len(self.gamefield[x])):
-                if self.gamefield[x][y] != 0:
-                    norm_gamefield[x][y] = 1
+    def getState(self, type=1,  playerID=-1,):
+        # Player Pos and Gamefield
+        if type == 1:
+            norm_gamefield = np.array(self.gamefield, dtype=int)
+            for x in range(len(self.gamefield)):
+                for y in range(len(self.gamefield[x])):
+                    if self.gamefield[x][y] != 0:
+                        norm_gamefield[x][y] = 1
 
-        if playerID == -1:
-            try:
-                playerID = self.act_players[0].id
-                player = self.find_player_by_id(playerID)
-                playerPos = [player.actPos.x, player.actPos.y]
-            except:
-                playerPos = [-1,-1]
-        returnState = np.concatenate((playerPos, norm_gamefield.flatten()), axis=0)
-        return returnState.flatten()
+            if playerID == -1:
+                try:
+                    playerID = self.act_players[0].id
+                    player = self.find_player_by_id(playerID)
+                    playerPos = [player.actPos.x, player.actPos.y]
+                except:
+                    playerPos = [-1,-1]
+            returnState = np.concatenate((playerPos, norm_gamefield.flatten()), axis=0)
+            return returnState.flatten()
+
+        # Only Surrounding Field
+        if type == 2:
+            player = self.find_player_by_id(playerID)
+            if player == None and len(self.act_players):
+                player = self.act_players[0]
+            if player:
+                actPos = player.actPos
+                # Field in a 3x3 area with actpos in center
+                y = actPos.y - 1
+                x = actPos.x - 1
+                surrounding = [
+                    [self.gamefield[(y - 1) % self.gamefield_h][(x - 1) % self.gamefield_w], self.gamefield[(y - 1) % self.gamefield_h][x % self.gamefield_w], self.gamefield[(y - 1) % self.gamefield_h][(x + 1) % self.gamefield_w]],
+                    [self.gamefield[y % self.gamefield_h][(x - 1) % self.gamefield_w], self.gamefield[y % self.gamefield_h][x % self.gamefield_w], self.gamefield[y % self.gamefield_h][(x + 1) % self.gamefield_w]],
+                    [self.gamefield[(y + 1) % self.gamefield_h][(x - 1) % self.gamefield_w], self.gamefield[(y + 1) % self.gamefield_h][x % self.gamefield_w], self.gamefield[(y + 1) % self.gamefield_h][(x + 1) % self.gamefield_w]]
+                ]
+                norm_surrounding = np.array(surrounding, dtype=int)
+                for x in range(len(surrounding)):
+                    for y in range(len(surrounding[x])):
+                        if surrounding[x][y] != 0:
+                            norm_surrounding[x][y] = 1
+                returnState = norm_surrounding.flatten()
+                return returnState
+            else:
+                return [1,1,1,1,1,1,1,1,1]
 
     # Do one Game Step
     def game_step(self):
-        reward = self.amountMoves
+        reward = 1
 
         # Event handling
         for event in pygame.event.get():
@@ -249,10 +276,10 @@ class TronGame:
 
         # Check if game Over
         if self._checkGameOver():
-            reward = -10
-            return self.getState(), reward, True
+            reward = -1
+            return self.getState(type=self.learningType), reward, True
 
-        return self.getState(), reward, False
+        return self.getState(type=self.learningType), reward, False
 
     # Step function for learning the ML-Net
     def step(self, action):
