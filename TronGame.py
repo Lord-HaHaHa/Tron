@@ -9,13 +9,13 @@ def on_key_press(key):
     print("key pressed")
     try:
         if key.char == 'w':
-            game.registerAction(p1, 4)
-        elif key.char == 'a':
-            game.registerAction(p1,2)
-        elif key.char == 's':
             game.registerAction(p1, 3)
+        elif key.char == 'a':
+            game.registerAction(p1,1)
+        elif key.char == 's':
+            game.registerAction(p1, 2)
         elif key.char == 'd':
-            game.registerAction(p1, 1)
+            game.registerAction(p1, 0)
     except AttributeError:
         pass
 

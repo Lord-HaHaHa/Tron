@@ -92,6 +92,7 @@ class TronGame:
 
     # Register a Action for a Player
     def registerAction(self, id, action):
+        action += 1
         if action > 4 or action <1:
             return False
         validID = False
