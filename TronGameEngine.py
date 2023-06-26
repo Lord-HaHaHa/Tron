@@ -16,7 +16,7 @@ WHITE = (255, 255, 255)
 BLACK = (0,0,0)
 
 BLOCK_SIZE = 20
-SPEED = 2000
+SPEED = 1000
 DELAY_FOR_TIMEOUTMOVE = 200
 
 class Player:
@@ -71,7 +71,7 @@ class TronGame:
 
         # init vars
         self.lastMoveUpdate = 0
-        self.amountMoves = 0
+        self.amountMoves = 1
         self.gamefield_w = blockAmount_w
         self.gamefield_h = blockAmount_h
         self.gamefield = [[0 for x in range(self.gamefield_w)] for y in range(self.gamefield_h)]
@@ -85,7 +85,7 @@ class TronGame:
     def reset(self):
         self.act_players = []
         self.frame_iteration = 0
-        self.amountMoves = 0
+        self.amountMoves = 1
         self.gamefield = [[0 for x in range(self.gamefield_w)] for y in range(self.gamefield_h)]
         self.queuedActions = []
         self.act_players = self.players.copy()
@@ -102,7 +102,7 @@ class TronGame:
         if validID:
             validActionRegister = True
             for a in self.queuedActions:
-                if a.id == id:
+                if a.playerID == id:
                     validActionRegister = False
             if validActionRegister:
                 self.queuedActions.append(Action(id, action))
@@ -200,7 +200,7 @@ class TronGame:
                         pygame.draw.rect(self.display, ply.color, pygame.Rect(x * BLOCK_SIZE + 4, y * BLOCK_SIZE + 4, 12, 12))
         # Draw Score:
         text = font.render("Player: " + str(len(self.act_players)) + " Moves:" + str(self.amountMoves), True, WHITE)
-        self.display.blit(text, [0,0])
+        self.display.blit(text, [0, 0])
 
         # Update Screen
         pygame.display.flip()
@@ -208,12 +208,16 @@ class TronGame:
     # Check for GameOver
     def _checkGameOver(self):
         # TODO: Better Win Condition (1 player left when not in single player mode)
+        #if len(self.players) > 1:
+        #   if len(self.act_players) <= 1:
+        #      return True
+        #else:
         if len(self.act_players) == 0:
             return True
         return False
 
     # Generate State for ML
-    def getState(self, type=1,  playerID=-1,):
+    def getState(self, type=1,  playerID=-1):
         # Player Pos and Gamefield
         if type == 1:
             norm_gamefield = np.array(self.gamefield, dtype=int)
@@ -257,9 +261,34 @@ class TronGame:
             else:
                 return [1,1,1,1,1,1,1,1,1]
 
+        # gamefield but playerPos is always [0,0]
+        if type == 3:
+            norm_gamefield = np.array(self.gamefield, dtype=int)
+            norm_gamefield.fill(0)
+            if playerID==-1:
+                if len(self.act_players) == 0:
+                    return norm_gamefield.flatten()
+                else:
+                    player = self.act_players[0]
+            else:
+                player = self.find_player_by_id(playerID)
+            i=0
+            #print(f"player: {player.actPos}")
+            for x in range(0,self.gamefield_w):
+                j=0
+                for y in range(0,self.gamefield_h):
+                    #print(x," ",y," ",(player.actPos.x-1+i)%self.gamefield_w, " ",(player.actPos.y-1+j)%self.gamefield_h,self.gamefield[(player.actPos.y-1+j)%self.gamefield_h][(player.actPos.x-1+i)%self.gamefield_w])
+                    norm_gamefield[x][y] = 1 if (self.gamefield[(player.actPos.y-1+j)%self.gamefield_h][(player.actPos.x-1+i)%self.gamefield_w]>0) else 0
+                    j+=1
+                i+=1
+
+            returnState = norm_gamefield
+            #print(norm_gamefield)
+            return returnState.flatten()
+
     # Do one Game Step
     def game_step(self):
-        reward = 1
+        reward = self.amountMoves-(self.gamefield_h * self.gamefield_w)
 
         # Event handling
         for event in pygame.event.get():
@@ -275,14 +304,14 @@ class TronGame:
         self._render()
         self.clock.tick(SPEED)
 
+        game_ended = False
         # Check if game Over
         if self._checkGameOver():
-            reward = -1
-            return self.getState(type=self.learningType), reward, True
+            game_ended = True
 
-        return self.getState(type=self.learningType), reward, False
+        return self.getState(type=self.learningType), reward, game_ended
 
-    # Step function for learning the ML-Net
+    # Step function for learning the ML-Agent
     def step(self, action):
         self.registerAction(self.act_players[0].id, action)
         return self.game_step()
