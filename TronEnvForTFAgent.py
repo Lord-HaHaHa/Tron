@@ -22,12 +22,12 @@ from tf_agents.trajectories import time_step as ts
 configname = 'Model_500'
 tempdir = os.path.join('Saves', configname)
 policy_dir = os.path.join(tempdir, 'policy')
-enemy = True
+enemy = False
 
 class TronGameEnv(py_environment.PyEnvironment):
     def __init__(self):
-        screen_width = 10
-        screen_height = 10
+        screen_width = 30
+        screen_height = 30
         self.learningType = 3
         self.game_engine = TGE.TronGame(screen_width,screen_height, useTimeout=False, learingType=self.learningType)
         self.player = self.game_engine.registerPlayer((0, 0, 255))
@@ -39,7 +39,7 @@ class TronGameEnv(py_environment.PyEnvironment):
         if self.enemy:
             self.enemy_player = self.game_engine.registerPlayer((255, 0, 0))
             self.enemy_pol = tf.saved_model.load(policy_dir)
-            self.tf_py_env = tf_py_environment.TFPyEnvironment(self)
+            #self.tf_py_env = tf_py_environment.TFPyEnvironment(self)
 
     def action_spec(self):
         return self._action_spec
@@ -62,9 +62,14 @@ class TronGameEnv(py_environment.PyEnvironment):
 
         # Let the enemy chose his move
         if self.enemy and len(self.game_engine.act_players) > 1:
-            time_step = self.tf_py_env.current_time_step()
+#            time_step = self.tf_py_env.current_time_step()
             gamefield_enemy = self.game_engine.getState(type=self.learningType, playerID=self.enemy_player).reshape(1,100)
-            ts_enemy = tf_agents.trajectories.TimeStep(observation=tf.convert_to_tensor(gamefield_enemy, dtype=np.int32), reward=time_step.reward, discount=time_step.discount, step_type=time_step.step_type)
+
+            ts_enemy = tf_agents.trajectories.TimeStep(observation=tf.convert_to_tensor(gamefield_enemy, dtype=np.int32),
+                                               reward=tf.convert_to_tensor([0.0], dtype=np.float32),
+                                               discount=tf.convert_to_tensor([0.0], dtype=np.float32),
+                                               step_type=tf.convert_to_tensor([0], dtype=np.int32))
+
             action_step = self.enemy_pol.action(ts_enemy)
             enemy_action = action_step.action
             self.game_engine.registerAction(self.enemy_player, enemy_action)

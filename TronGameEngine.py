@@ -16,7 +16,7 @@ WHITE = (255, 255, 255)
 BLACK = (0,0,0)
 
 BLOCK_SIZE = 20
-SPEED = 1000
+SPEED = 10
 DELAY_FOR_TIMEOUTMOVE = 200
 
 class Player:
@@ -88,7 +88,9 @@ class TronGame:
         self.amountMoves = 1
         self.gamefield = [[0 for x in range(self.gamefield_w)] for y in range(self.gamefield_h)]
         self.queuedActions = []
-        self.act_players = self.players.copy()
+        for player in self.players:
+            player.actPos = Point(randint(0, self.gamefield_w), randint(0, self.gamefield_h))
+            self.act_players.append(player)
 
     # Register a Action for a Player
     def registerAction(self, id, action):
@@ -159,7 +161,7 @@ class TronGame:
                                 self._movePlayer(p, act)
                                 moved = True
                                 break
-                        print("USE TIMEOUT")
+                        # print("USE TIMEOUT")
                         self.queuedActions.clear()
 
                         if not moved:
@@ -212,7 +214,10 @@ class TronGame:
         #   if len(self.act_players) <= 1:
         #      return True
         #else:
-        if len(self.act_players) == 0:
+        threashhold = 1
+        if len(self.players) == 1:
+            threashhold = 0
+        if len(self.act_players) <= threashhold:
             return True
         return False
 

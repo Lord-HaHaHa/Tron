@@ -25,9 +25,9 @@ from tf_agents.specs import tensor_spec
 from tf_agents.utils import common
 from tf_agents.networks import categorical_q_network
 
-configname = 'Model_500'
+configname = 'Model_30x30'
 
-use_trainedPol = True
+use_trainedPol = False
 tempdir = os.path.join('Saves', configname)
 
 num_iterations = 40_000 # @param {type:"integer"}
@@ -231,6 +231,5 @@ for _ in range(num_iterations):
             tf_policy_saver.save(policy_dir)
             train_checkpointer.save(global_step)
 
-print(returns)
 
 exit(0)
